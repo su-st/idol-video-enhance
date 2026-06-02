@@ -1,0 +1,1299 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>偶像影片畫質修復</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@500;600;700;900&family=Noto+Sans+TC:wght@300;400;500&display=swap" rel="stylesheet">
+    <style>
+         :root {
+            --paper: #ece8e1;
+            --paper-2: #e4dfd6;
+            --ink: #2b2a27;
+            --ink-soft: #6e6a62;
+            --ink-faint: #9b958a;
+            --line: #c8c2b6;
+            --line-soft: #d6d0c4;
+            --accent: #3a3733;
+            --frame: #b9b2a4;
+            /* ▼▼▼ 背景圖：把你的圖片網址或 base64 貼進引號裡；留空則為純色 ▼▼▼ */
+            --bg-url: url("/static/1.jpg");
+            /* 例： --bg-url:url("/static/bg.jpg");  或  url("data:image/jpeg;base64,..."); */
+            --bg-fade: 0.78;
+            /* 背景淡化程度 0~1，數字越大背景越淡 */
+            --field: #ddd7cc;
+        }
+        
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        
+        html {
+            height: 100%;
+        }
+        
+        body {
+            font-family: 'Noto Sans TC', sans-serif;
+            color: var(--ink);
+            min-height: 100vh;
+            padding: 48px 20px;
+            position: relative;
+            /* 預設背景：柔和的米色層次（尚未放圖片時也好看） */
+            background: radial-gradient(120% 90% at 80% 10%, #f4f1ea 0%, transparent 55%), radial-gradient(120% 90% at 10% 95%, #e0dacd 0%, transparent 60%), linear-gradient(160deg, #ece8e1 0%, #e3ddd1 100%);
+            background-attachment: fixed;
+        }
+        /* ── 背景圖片層（紅框外面，固定、淡化） ── */
+        
+        #bgImage {
+            position: fixed;
+            inset: 0;
+            z-index: 0;
+            background-image: var(--bg-url);
+            background-size: cover;
+            background-position: center;
+            background-attachment: fixed;
+        }
+        /* 淡化用的紙色遮罩 */
+        
+        #bgFade {
+            position: fixed;
+            inset: 0;
+            z-index: 1;
+            background: var(--paper);
+            opacity: var(--bg-fade);
+        }
+        /* 紙面顆粒質感 */
+        
+        body::after {
+            content: "";
+            position: fixed;
+            inset: 0;
+            z-index: 2;
+            pointer-events: none;
+            opacity: .035;
+            mix-blend-mode: multiply;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+        }
+        /* ── 主容器（原本的紅色框） ── */
+        
+        .stage {
+            position: relative;
+            z-index: 3;
+            width: 100%;
+            max-width: 560px;
+            margin: 0 auto;
+        }
+        /* 共用框架樣式（原本的藍色框） */
+        
+        .frame {
+            border: 1px solid var(--frame);
+            background: rgba(236, 232, 225, .72);
+            -webkit-backdrop-filter: blur(6px);
+            backdrop-filter: blur(6px);
+            border-radius: 2px;
+            box-shadow: 0 1px 0 rgba(255, 255, 255, .5) inset, 0 18px 40px -28px rgba(40, 38, 34, .5);
+        }
+        /* 內襯細線，做出雙框的編輯感 */
+        
+        .frame.lined {
+            padding: 6px;
+        }
+        
+        .frame.lined>.inner {
+            border: 1px solid var(--line-soft);
+        }
+        /* 入場動畫 */
+        
+        .reveal {
+            opacity: 0;
+            transform: translateY(14px);
+            animation: rise .8s cubic-bezier(.2, .7, .2, 1) forwards;
+        }
+        
+        @keyframes rise {
+            to {
+                opacity: 1;
+                transform: none;
+            }
+        }
+        /* ── 標題區 ── */
+        
+        .header {
+            padding: 52px 40px 34px;
+            margin-bottom: 18px;
+        }
+        
+        .eyebrow {
+            font-size: 11px;
+            letter-spacing: .46em;
+            text-indent: .46em;
+            color: var(--ink-faint);
+            font-weight: 500;
+            text-transform: uppercase;
+            margin-bottom: 18px;
+        }
+        
+        h1 {
+            font-family: 'Noto Serif TC', serif;
+            font-weight: 900;
+            font-size: clamp(32px, 7vw, 44px);
+            line-height: 1.08;
+            white-space: nowrap;
+            letter-spacing: .02em;
+            color: var(--ink);
+        }
+        
+        .tagline {
+            margin-top: 16px;
+            color: var(--ink-soft);
+            font-weight: 300;
+            font-size: 15px;
+            letter-spacing: .08em;
+        }
+        
+        .rule {
+            width: 42px;
+            height: 1px;
+            background: var(--ink);
+            margin-top: 26px;
+            opacity: .55;
+        }
+        /* ── 預覽 / 上傳區（中間大方框） ── */
+        
+        .uploader {
+            padding: 8px;
+            margin-bottom: 18px;
+        }
+        
+        .drop {
+            border: 1.5px dashed var(--frame);
+            border-radius: 2px;
+            aspect-ratio: 16/10;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 14px;
+            text-align: center;
+            cursor: pointer;
+            transition: background .2s ease, border-color .2s ease;
+            position: relative;
+            overflow: hidden;
+            background: rgba(228, 223, 214, .4);
+        }
+        
+        .drop:hover {
+            background: rgba(228, 223, 214, .7);
+            border-color: var(--ink-soft);
+        }
+        
+        .drop.dragover {
+            background: rgba(228, 223, 214, .9);
+            border-color: var(--ink);
+        }
+        
+        .drop .play {
+            width: 54px;
+            height: 54px;
+            border: 1px solid var(--frame);
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--ink-soft);
+        }
+        
+        .drop .play svg {
+            width: 20px;
+            height: 20px;
+        }
+        
+        .drop .hint-main {
+            font-family: 'Noto Serif TC', serif;
+            font-size: 18px;
+            color: var(--ink);
+            letter-spacing: .04em;
+        }
+        
+        .drop .hint-sub {
+            font-size: 12px;
+            color: var(--ink-faint);
+            letter-spacing: .1em;
+        }
+        /* 影片預覽 */
+        
+        .preview {
+            display: none;
+            width: 100%;
+        }
+        
+        .preview video {
+            width: 100%;
+            display: block;
+            border-radius: 2px;
+            background: #1a1a1a;
+        }
+        
+        .preview .meta {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px 6px 4px;
+            font-size: 13px;
+            color: var(--ink-soft);
+            letter-spacing: .04em;
+        }
+        
+        .preview .meta .name {
+            font-family: 'Noto Serif TC', serif;
+            color: var(--ink);
+        }
+        
+        .preview .meta .change {
+            cursor: pointer;
+            color: var(--ink-faint);
+            border-bottom: 1px solid var(--line);
+            padding-bottom: 1px;
+            transition: color .2s;
+        }
+        
+        .preview .meta .change:hover {
+            color: var(--ink);
+        }
+        
+        body.has-file .drop {
+            display: none;
+        }
+        
+        body.has-file .preview {
+            display: block;
+        }
+        /* ── 模式選擇 ── */
+        
+        .control {
+            padding: 22px 24px;
+            margin-bottom: 16px;
+        }
+        
+        .label {
+            font-size: 12px;
+            letter-spacing: .34em;
+            color: var(--ink-faint);
+            text-transform: uppercase;
+            margin-bottom: 12px;
+        }
+        
+        .select-wrap {
+            position: relative;
+        }
+        
+        select {
+            width: 100%;
+            -webkit-appearance: none;
+            appearance: none;
+            background: var(--field);
+            border: 1px solid var(--line);
+            border-radius: 2px;
+            padding: 14px 16px;
+            font-size: 15px;
+            color: var(--ink);
+            font-family: 'Noto Sans TC', sans-serif;
+            letter-spacing: .06em;
+            cursor: pointer;
+            transition: border-color .2s;
+        }
+        
+        select:focus {
+            outline: none;
+            border-color: var(--ink-soft);
+        }
+        
+        .select-wrap::after {
+            content: "";
+            position: absolute;
+            right: 16px;
+            top: 50%;
+            width: 8px;
+            height: 8px;
+            border-right: 1.5px solid var(--ink-soft);
+            border-bottom: 1.5px solid var(--ink-soft);
+            transform: translateY(-70%) rotate(45deg);
+            pointer-events: none;
+        }
+        /* ── 按鈕 ── */
+        
+        .start {
+            width: 100%;
+            padding: 18px;
+            border: none;
+            border-radius: 2px;
+            cursor: pointer;
+            background: var(--accent);
+            color: #f1ede5;
+            font-family: 'Noto Serif TC', serif;
+            font-weight: 600;
+            font-size: 17px;
+            letter-spacing: .34em;
+            text-indent: .34em;
+            transition: transform .15s ease, background .25s ease, opacity .2s;
+            box-shadow: 0 14px 28px -16px rgba(40, 38, 34, .7);
+        }
+        
+        .start:hover:not(:disabled) {
+            background: #222019;
+            transform: translateY(-1px);
+        }
+        
+        .start:active:not(:disabled) {
+            transform: translateY(0);
+        }
+        
+        .start:disabled {
+            background: #bcb6aa;
+            color: #ece8e1;
+            cursor: not-allowed;
+            box-shadow: none;
+        }
+        /* ── 進度條 ── */
+        
+        .progress {
+            margin-top: 18px;
+            padding: 18px 24px;
+            display: none;
+        }
+        
+        body.processing .progress,
+        body.done .progress,
+        body.error .progress {
+            display: block;
+        }
+        
+        .progress .row {
+            display: flex;
+            justify-content: space-between;
+            font-size: 13px;
+            letter-spacing: .1em;
+            color: var(--ink-soft);
+            margin-bottom: 10px;
+        }
+        
+        .bar {
+            height: 3px;
+            background: var(--line-soft);
+            border-radius: 2px;
+            overflow: hidden;
+        }
+        
+        .bar>i {
+            display: block;
+            height: 100%;
+            width: 0%;
+            background: var(--ink);
+            transition: width .3s ease;
+        }
+        
+        body.done .progress .status {
+            color: var(--ink);
+            font-family: 'Noto Serif TC', serif;
+        }
+        /* 取消按鈕 */
+        
+        .cancel-btn {
+            display: none;
+            margin-top: 14px;
+            width: 100%;
+            padding: 10px;
+            text-align: center;
+            background: transparent;
+            border: 1px solid var(--line);
+            border-radius: 2px;
+            color: var(--ink-faint);
+            cursor: pointer;
+            font-family: 'Noto Sans TC', sans-serif;
+            font-size: 13px;
+            letter-spacing: .1em;
+            transition: color .2s, border-color .2s;
+        }
+        
+        .cancel-btn:hover {
+            color: var(--ink);
+            border-color: var(--ink-soft);
+        }
+        
+        body.processing .cancel-btn {
+            display: block;
+        }
+        
+        body.done .cancel-btn,
+        body.error .cancel-btn {
+            display: none;
+        }
+        
+        .error-msg {
+            display: none;
+            margin-top: 10px;
+            padding: 10px 12px;
+            border-radius: 2px;
+            background: #f9e8e8;
+            border: 1px solid #e8b4b4;
+            color: #8b2020;
+            font-size: 13px;
+            letter-spacing: .04em;
+        }
+        
+        body.error .error-msg {
+            display: block;
+        }
+        /* 完成後的下載鈕 */
+        
+        .download {
+            display: none;
+            margin-top: 16px;
+            width: 100%;
+            padding: 13px;
+            text-align: center;
+            background: var(--field);
+            border: 1px solid var(--frame);
+            border-radius: 2px;
+            color: var(--ink);
+            text-decoration: none;
+            cursor: pointer;
+            font-family: 'Noto Serif TC', serif;
+            font-size: 14px;
+            letter-spacing: .28em;
+            text-indent: .28em;
+            transition: background .2s;
+        }
+        
+        .download:hover {
+            background: #d3ccbf;
+        }
+        
+        body.done .progress .download {
+            display: block;
+        }
+        /* 重新修復按鈕 */
+
+        .redo {
+            display: none;
+            margin-top: 10px;
+            width: 100%;
+            padding: 13px;
+            text-align: center;
+            background: transparent;
+            border: 1px solid var(--line);
+            border-radius: 2px;
+            color: var(--ink-soft);
+            cursor: pointer;
+            font-family: 'Noto Serif TC', serif;
+            font-size: 13px;
+            letter-spacing: .22em;
+            transition: color .2s, border-color .2s, background .2s;
+        }
+
+        .redo:hover {
+            color: var(--ink);
+            border-color: var(--ink-soft);
+            background: rgba(228, 223, 214, .4);
+        }
+
+        body.done .progress .redo {
+            display: block;
+        }
+        /* ── 修復前後對比 ── */
+        
+        .compare-section {
+            display: none;
+            padding: 20px;
+            margin-top: 18px;
+        }
+        
+        body.done .compare-section {
+            display: block;
+        }
+        
+        .compare-title {
+            font-size: 12px;
+            letter-spacing: .15em;
+            color: var(--ink-soft);
+            text-align: center;
+            margin-bottom: 14px;
+        }
+        
+        .compare-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+        
+        @media(max-width:520px) {
+            .compare-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+        
+        .compare-item {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+        
+        .compare-tag {
+            font-size: 11px;
+            letter-spacing: .12em;
+            color: var(--ink-soft);
+            text-align: center;
+        }
+        
+        .compare-item video {
+            width: 100%;
+            border-radius: 2px;
+            background: #000;
+        }
+        /* ── 評分 Modal ── */
+        
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, .45);
+            z-index: 100;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        
+        .modal-overlay.visible {
+            display: flex;
+        }
+        
+        .modal-box {
+            position: relative;
+            background: var(--paper);
+            border: 1px solid var(--frame);
+            border-radius: 4px;
+            padding: 32px 28px 24px;
+            width: 100%;
+            max-width: 400px;
+        }
+        
+        .modal-close {
+            position: absolute;
+            top: 12px;
+            right: 14px;
+            background: none;
+            border: none;
+            font-size: 16px;
+            color: var(--ink-soft);
+            cursor: pointer;
+            line-height: 1;
+            padding: 4px;
+        }
+        
+        .modal-close:hover {
+            color: var(--ink);
+        }
+        
+        .modal-title {
+            font-size: 16px;
+            font-family: 'Noto Serif TC', serif;
+            letter-spacing: .1em;
+            color: var(--ink);
+            margin-bottom: 4px;
+        }
+        
+        .modal-sub {
+            font-size: 12px;
+            color: var(--ink-soft);
+            margin-bottom: 20px;
+        }
+        
+        .rating-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 12px;
+            gap: 8px;
+        }
+        
+        .rating-label {
+            font-size: 13px;
+            color: var(--ink);
+            flex: 1;
+        }
+        
+        .rating-stars {
+            display: flex;
+            gap: 4px;
+        }
+        
+        .rating-stars button {
+            width: 36px;
+            height: 36px;
+            border: none;
+            background: none;
+            font-size: 24px;
+            cursor: pointer;
+            color: #ccc;
+            transition: color .15s, transform .1s;
+            line-height: 1;
+            padding: 0;
+        }
+        
+        .rating-stars button:hover,
+        .rating-stars button.selected {
+            color: #e8b84b;
+            transform: scale(1.15);
+        }
+        
+        .submit-rating {
+            margin-top: 16px;
+            width: 100%;
+            padding: 11px;
+            background: var(--field);
+            border: 1px solid var(--frame);
+            border-radius: 2px;
+            font-family: 'Noto Serif TC', serif;
+            font-size: 13px;
+            letter-spacing: .2em;
+            color: var(--ink);
+            cursor: pointer;
+            transition: background .2s;
+        }
+        
+        .submit-rating:hover {
+            background: #d3ccbf;
+        }
+        
+        .rating-thanks {
+            display: none;
+            text-align: center;
+            font-size: 13px;
+            color: var(--ink-soft);
+            padding: 10px 0 0;
+        }
+        /* done 狀態隱藏「開始修復」，改顯示「重新上傳」 */
+        
+        body.done .start {
+            display: none;
+        }
+        
+        .reupload {
+            display: none;
+            margin-top: 10px;
+            width: 100%;
+            padding: 11px;
+            text-align: center;
+            background: transparent;
+            border: 1px solid var(--line);
+            border-radius: 2px;
+            color: var(--ink-soft);
+            cursor: pointer;
+            font-family: 'Noto Sans TC', sans-serif;
+            font-size: 13px;
+            letter-spacing: .18em;
+            transition: color .2s, border-color .2s;
+        }
+        
+        .reupload:hover {
+            color: var(--ink);
+            border-color: var(--ink-soft);
+        }
+        
+        body.done .progress .reupload {
+            display: block;
+        }
+        /* 確認放棄對話框 */
+        
+        .confirm-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, .45);
+            z-index: 200;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        
+        .confirm-overlay.visible {
+            display: flex;
+        }
+        
+        .confirm-box {
+            background: var(--paper);
+            border: 1px solid var(--frame);
+            border-radius: 4px;
+            padding: 28px 24px 20px;
+            width: 100%;
+            max-width: 320px;
+            text-align: center;
+        }
+        
+        .confirm-title {
+            font-family: 'Noto Serif TC', serif;
+            font-size: 16px;
+            color: var(--ink);
+            margin-bottom: 8px;
+            letter-spacing: .06em;
+        }
+        
+        .confirm-sub {
+            font-size: 13px;
+            color: var(--ink-soft);
+            margin-bottom: 20px;
+            line-height: 1.7;
+        }
+        
+        .confirm-btns {
+            display: flex;
+            gap: 10px;
+        }
+        
+        .confirm-no {
+            flex: 1;
+            padding: 10px;
+            border: 1px solid var(--line);
+            border-radius: 2px;
+            background: transparent;
+            color: var(--ink-soft);
+            cursor: pointer;
+            font-family: 'Noto Sans TC', sans-serif;
+            font-size: 13px;
+            transition: color .2s;
+        }
+        
+        .confirm-no:hover {
+            color: var(--ink);
+        }
+        
+        .confirm-yes {
+            flex: 1;
+            padding: 10px;
+            border: none;
+            border-radius: 2px;
+            background: var(--accent);
+            color: #f1ede5;
+            cursor: pointer;
+            font-family: 'Noto Serif TC', serif;
+            font-size: 13px;
+            letter-spacing: .1em;
+            transition: background .2s;
+        }
+        
+        .confirm-yes:hover {
+            background: #222019;
+        }
+        
+        @media(max-width:520px) {
+            .header {
+                padding: 32px 26px 28px;
+            }
+            .control,
+            .progress {
+                padding: 20px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <div id="bgImage"></div>
+    <div id="bgFade"></div>
+
+    <div class="stage">
+
+        <!-- 標題框 -->
+        <header class="frame header reveal" style="animation-delay:.05s">
+            <div class="eyebrow">Idol Enhancement Studio</div>
+            <h1>偶像影片畫質修復</h1>
+            <div class="tagline">一鍵修復，讓每一幀都值得珍藏</div>
+            <div class="rule"></div>
+        </header>
+
+        <!-- 上傳 / 預覽框 -->
+        <section class="frame lined uploader reveal" style="animation-delay:.18s">
+            <div class="inner">
+                <div class="drop" id="drop">
+                    <div class="play">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 5v14l11-7z"/></svg>
+                    </div>
+                    <div>
+                        <div class="hint-main">點擊或拖曳上傳影片</div>
+                        <div class="hint-sub">支援 MP4 / MOV / AVI　最大 50 MB</div>
+                    </div>
+                </div>
+
+                <div class="preview" id="preview">
+                    <video id="video" controls playsinline></video>
+                    <div class="meta">
+                        <span class="name" id="fileName">影片.mp4</span>
+                        <span class="change" id="changeFile">更換影片</span>
+                    </div>
+                </div>
+            </div>
+            <input type="file" id="fileInput" accept=".mp4,.mov,.avi" hidden>
+        </section>
+
+        <!-- 模式框 -->
+        <section class="frame control reveal" style="animation-delay:.3s">
+            <div class="label">處理模式</div>
+            <div class="select-wrap">
+                <select id="mode" title="處理模式" aria-label="處理模式">
+                    <option value="auto">自動模式　依影片長度自動選擇</option>
+                    <option value="fast">快速模式　2× 放大＋銳化，速度優先</option>
+                    <option value="quality">精緻模式　人臉修復＋超解析度，畫質優先</option>
+      </select>
+            </div>
+        </section>
+
+        <!-- 按鈕 -->
+        <button class="start" id="startBtn" type="button" disabled>開 始 修 復</button>
+
+        <!-- 進度框 -->
+        <section class="frame progress" id="progress">
+            <div class="row">
+                <span class="status" id="status">處理中…</span>
+                <span id="pct">0%</span>
+            </div>
+            <div class="bar"><i id="barFill"></i></div>
+            <button class="cancel-btn" id="cancelBtn" type="button">取 消 修 復</button>
+            <div class="error-msg" id="errorMsg"></div>
+            <a class="download" id="downloadBtn" href="#">下 載 影 片</a>
+            <button class="redo" id="redoBtn" type="button">重 新 修 復 同 一 影 片</button>
+            <button class="reupload" id="reuploadBtn" type="button">重 新 上 傳 新 影 片</button>
+        </section>
+
+        <!-- 修復前後對比 -->
+        <section class="frame compare-section" id="compareSection">
+            <div class="compare-title">修 復 前 後 對 比</div>
+            <div class="compare-grid">
+                <div class="compare-item">
+                    <div class="compare-tag">修復前</div>
+                    <video id="origVideo" controls playsinline muted></video>
+                </div>
+                <div class="compare-item">
+                    <div class="compare-tag">修復後</div>
+                    <video id="enhVideo" controls playsinline muted></video>
+                </div>
+            </div>
+        </section>
+
+    </div>
+
+    <!-- 確認放棄 Modal -->
+    <div class="confirm-overlay" id="confirmOverlay">
+        <div class="confirm-box">
+            <div class="confirm-title">尚未下載修復影片</div>
+            <div class="confirm-sub">確定要放棄目前結果<br>重新上傳新影片？</div>
+            <div class="confirm-btns">
+                <button class="confirm-no" id="confirmNo" type="button">取 消</button>
+                <button class="confirm-yes" id="confirmYes" type="button">確 定</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 評分 Modal -->
+    <div class="modal-overlay" id="modalOverlay">
+        <div class="modal-box">
+            <button class="modal-close" id="modalClose" type="button" aria-label="關閉">✕</button>
+            <div class="modal-title">使用體驗評分</div>
+            <div class="modal-sub">您的回饋對我們很重要</div>
+            <div class="rating-row">
+                <span class="rating-label">操作是否容易？</span>
+                <div class="rating-stars" data-key="ease">
+                    <button type="button">★</button><button type="button">★</button>
+                    <button type="button">★</button><button type="button">★</button>
+                    <button type="button">★</button>
+                </div>
+            </div>
+            <div class="rating-row">
+                <span class="rating-label">畫質是否有改善？</span>
+                <div class="rating-stars" data-key="quality">
+                    <button type="button">★</button><button type="button">★</button>
+                    <button type="button">★</button><button type="button">★</button>
+                    <button type="button">★</button>
+                </div>
+            </div>
+            <div class="rating-row">
+                <span class="rating-label">整體滿意度？</span>
+                <div class="rating-stars" data-key="overall">
+                    <button type="button">★</button><button type="button">★</button>
+                    <button type="button">★</button><button type="button">★</button>
+                    <button type="button">★</button>
+                </div>
+            </div>
+            <button class="submit-rating" id="submitRating" type="button">送 出 評 分</button>
+            <div class="rating-thanks" id="ratingThanks">感謝您的回饋 ✓</div>
+        </div>
+    </div>
+
+    <script>
+        const body = document.body;
+        let hasDownloaded = false;
+
+        /* ─── 影片上傳 + 預覽 ─── */
+        const fileInput = document.getElementById('fileInput');
+        const drop = document.getElementById('drop');
+        const video = document.getElementById('video');
+        const fileName = document.getElementById('fileName');
+        const startBtn = document.getElementById('startBtn');
+        let currentURL = null;
+        let selectedFile = null; // 給後端上傳用
+
+        function loadVideo(file) {
+            if (!file || !file.type.startsWith('video/')) return;
+            const mb = file.size / 1024 / 1024;
+            if (mb > 50) {
+                alert('檔案過大，請選擇 50 MB 以內的影片（目前 ' + mb.toFixed(1) + ' MB）');
+                return;
+            }
+            // 若有正在跑的任務，取消它並清掉輪詢
+            if (taskId) {
+                fetch('/cancel/' + taskId, { method: 'POST' }).catch(() => {});
+                taskId = null;
+            }
+            if (pollInterval) { clearInterval(pollInterval); pollInterval = null; }
+            stopHeartbeat();
+            selectedFile = file;
+            if (currentURL) URL.revokeObjectURL(currentURL);
+            currentURL = URL.createObjectURL(file);
+            video.src = currentURL;
+            fileName.textContent = file.name + '  ·  ' + mb.toFixed(1) + ' MB';
+            body.classList.add('has-file');
+            body.classList.remove('processing', 'done');
+            startBtn.disabled = false;
+        }
+
+        drop.addEventListener('click', () => fileInput.click());
+        document.getElementById('changeFile').addEventListener('click', () => fileInput.click());
+        fileInput.addEventListener('change', e => loadVideo(e.target.files[0]));
+
+        ['dragenter', 'dragover'].forEach(ev =>
+            drop.addEventListener(ev, e => {
+                e.preventDefault();
+                drop.classList.add('dragover');
+            }));
+        ['dragleave', 'drop'].forEach(ev =>
+            drop.addEventListener(ev, e => {
+                e.preventDefault();
+                drop.classList.remove('dragover');
+            }));
+        drop.addEventListener('drop', e => loadVideo(e.dataTransfer.files[0]));
+
+        /* ─── 開始修復（串接後端 /upload → /status → /download） ─── */
+        const progress = document.getElementById('progress');
+        const barFill = document.getElementById('barFill');
+        const pct = document.getElementById('pct');
+        const status = document.getElementById('status');
+        const downloadBtn = document.getElementById('downloadBtn');
+        const cancelBtn = document.getElementById('cancelBtn');
+        const errorMsg = document.getElementById('errorMsg');
+
+        function showError(msg) {
+            body.classList.remove('processing', 'done');
+            body.classList.add('error');
+            errorMsg.textContent = msg;
+            startBtn.disabled = false;
+        }
+
+        const modeSelect = document.getElementById('mode');
+        let taskId = null;
+        let pollInterval = null;
+        let heartbeatInterval = null;
+
+        cancelBtn.addEventListener('click', async() => {
+            if (!taskId) return;
+            cancelBtn.disabled = true;
+            cancelBtn.textContent = '取消中…';
+            try {
+                await fetch('/cancel/' + taskId, {
+                    method: 'POST'
+                });
+            } catch (e) { /* 忽略網路錯誤，輪詢會處理後續狀態 */ }
+        });
+
+        // 模式代碼 → 中文標籤（同時相容 quality / hq 兩種命名）
+        function modeLabel(m) {
+            if (m === 'hq' || m === 'quality') return '精緻模式';
+            if (m === 'fast') return '快速模式';
+            if (m === 'auto') return '自動模式';
+            return m || '';
+        }
+
+        // 頁面載入時清掉殘留 taskId（已在 beforeunload 取消）
+        localStorage.removeItem('taskId');
+
+        // 關閉分頁 / 重新整理 → 立即送取消請求
+        window.addEventListener('beforeunload', () => {
+            if (taskId) navigator.sendBeacon('/cancel/' + taskId);
+        });
+
+        async function startProcessing() {
+            if (!selectedFile) return;
+
+            const formData = new FormData();
+            formData.append('video', selectedFile);
+            formData.append('mode', modeSelect.value);
+
+            startBtn.disabled = true;
+            body.classList.remove('done', 'error');
+            body.classList.add('processing');
+            downloadBtn.style.display = 'none';
+            status.textContent = '上傳中…';
+            barFill.style.width = '20%';
+            pct.textContent = '20%';
+
+            try {
+                const res = await fetch('/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+                let data = {};
+                try {
+                    data = await res.json();
+                } catch (e) {
+                    data = { error: 'Upload failed: server returned an unreadable response.' };
+                }
+
+                if (!res.ok || data.error) {
+                    status.textContent = data.error || ('Upload failed: HTTP ' + res.status);
+                    startBtn.disabled = false;
+                    return;
+                }
+
+                taskId = data.task_id;
+                sendHeartbeat();
+                const dur = data.duration !== undefined ? ('影片長度 ' + data.duration + ' 秒　') : '';
+                status.textContent = dur + modeLabel(data.mode) + '　處理中…';
+                startPolling();
+            } catch (e) {
+                status.textContent = '上傳失敗，請重試';
+                startBtn.disabled = false;
+            }
+        }
+
+        startBtn.addEventListener('click', () => {
+            if (startBtn.disabled || !selectedFile) return;
+            startProcessing();
+        });
+
+        // ─── Heartbeat（獨立 interval，每 15 秒，切換分頁也繼續跑）───
+        async function sendHeartbeat() {
+            if (!taskId) return;
+            try {
+                await fetch('/heartbeat/' + taskId, { method: 'POST' });
+            } catch (e) { /* best-effort */ }
+        }
+
+        function startHeartbeat() {
+            if (heartbeatInterval) clearInterval(heartbeatInterval);
+            sendHeartbeat();
+            heartbeatInterval = setInterval(sendHeartbeat, 15000);
+        }
+
+        function stopHeartbeat() {
+            if (heartbeatInterval) { clearInterval(heartbeatInterval); heartbeatInterval = null; }
+        }
+
+        // 頁面切回來時立刻補送一次，避免長時間離開後等到下一個 15s
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'visible' && taskId) sendHeartbeat();
+        });
+
+        // ─── 輪詢狀態 ───
+        function startPolling() {
+            if (pollInterval) clearInterval(pollInterval);
+            startHeartbeat();
+            pollInterval = setInterval(async() => {
+                try {
+                    const res = await fetch('/status/' + taskId);
+                    const data = await res.json();
+
+                    if (data.status === 'queued') {
+                        barFill.style.width = '5%';
+                        pct.textContent = '排隊中';
+                        status.textContent = '排隊中，請稍候…';
+                    } else if (data.status === 'processing') {
+                        const p = data.progress > 0 ? Math.max(data.progress, 20) : 20;
+                        barFill.style.width = p + '%';
+                        pct.textContent = Math.floor(p) + '%';
+                        status.textContent = '處理中…';
+                    } else if (data.status === 'done') {
+                        clearInterval(pollInterval); stopHeartbeat();
+                        barFill.style.width = '100%';
+                        pct.textContent = '100%';
+                        body.classList.remove('processing');
+                        body.classList.add('done');
+                        status.textContent = '修復完成 ✓';
+                        downloadBtn.href = '/download/' + taskId;
+                        downloadBtn.setAttribute('download', 'enhanced.mp4');
+                        downloadBtn.style.display = 'block';
+                        startBtn.disabled = false;
+                        // 對比影片
+                        const origVideo = document.getElementById('origVideo');
+                        const enhVideo = document.getElementById('enhVideo');
+                        if (currentURL) origVideo.src = currentURL;
+                        enhVideo.src = '/preview/' + taskId;
+                    } else if (data.status === 'error') {
+                        clearInterval(pollInterval); stopHeartbeat();
+                        showError('處理失敗：' + (data.message || '未知錯誤，請重試'));
+                    } else if (data.status === 'cancelled') {
+                        clearInterval(pollInterval); stopHeartbeat();
+                        cancelBtn.disabled = false;
+                        cancelBtn.textContent = '取 消 修 復';
+                        barFill.style.width = '0%';
+                        pct.textContent = '0%';
+                        showError('已取消修復，可重新上傳影片再試');
+                    } else if (data.status === 'not_found') {
+                        clearInterval(pollInterval); stopHeartbeat();
+                        showError('連線中斷或伺服器重啟，請重新整理頁面後再試');
+                    }
+                } catch (e) {
+                    clearInterval(pollInterval); stopHeartbeat();
+                    localStorage.removeItem('taskId');
+                    showError('查詢狀態失敗，請檢查網路後重新整理頁面');
+                }
+            }, 2000);
+        }
+
+        /* ─── 評分 Modal 邏輯 ─── */
+        const modalOverlay = document.getElementById('modalOverlay');
+        const modalClose = document.getElementById('modalClose');
+        const submitRating = document.getElementById('submitRating');
+        const ratingThanks = document.getElementById('ratingThanks');
+        const ratings = {};
+
+        function openModal() {
+            modalOverlay.classList.add('visible');
+        }
+
+        function closeModal() {
+            modalOverlay.classList.remove('visible');
+        }
+
+        // 點下載後開 Modal（下載同步進行）
+        downloadBtn.addEventListener('click', () => {
+            hasDownloaded = true;
+            openModal();
+        });
+
+        // 右上角關閉
+        modalClose.addEventListener('click', closeModal);
+
+        // 點遮罩關閉
+        modalOverlay.addEventListener('click', e => {
+            if (e.target === modalOverlay) closeModal();
+        });
+
+        // 星星評分選取（點第 N 顆，前 N 顆全亮）
+        document.querySelectorAll('.rating-stars').forEach(group => {
+            const btns = group.querySelectorAll('button');
+            btns.forEach((btn, idx) => {
+                btn.addEventListener('click', () => {
+                    btns.forEach((b, i) => b.classList.toggle('selected', i <= idx));
+                    ratings[group.dataset.key] = idx + 1;
+                });
+                btn.addEventListener('mouseenter', () => {
+                    btns.forEach((b, i) => b.style.color = i <= idx ? '#e8b84b' : '#ccc');
+                });
+                btn.addEventListener('mouseleave', () => {
+                    const val = ratings[group.dataset.key];
+                    btns.forEach((b, i) => {
+                        b.style.color = val && i < val ? '#e8b84b' : '#ccc';
+                    });
+                });
+            });
+        });
+
+        /* ─── 重新上傳 + 確認放棄邏輯 ─── */
+        const reuploadBtn = document.getElementById('reuploadBtn');
+        const confirmOverlay = document.getElementById('confirmOverlay');
+        const confirmNo = document.getElementById('confirmNo');
+        const confirmYes = document.getElementById('confirmYes');
+
+        function resetToInitial() {
+            hasDownloaded = false;
+            taskId = null;
+            selectedFile = null;
+            if (currentURL) {
+                URL.revokeObjectURL(currentURL);
+                currentURL = null;
+            }
+            video.src = '';
+            document.getElementById('origVideo').src = '';
+            document.getElementById('enhVideo').src = '';
+            downloadBtn.href = '#';
+            barFill.style.width = '0%';
+            pct.textContent = '0%';
+            status.textContent = '處理中…';
+            body.classList.remove('has-file', 'processing', 'done', 'error');
+            startBtn.disabled = true;
+            startBtn.style.display = '';
+            fileInput.value = '';
+        }
+
+        // 重新修復同一影片：重置狀態後直接開始
+        const redoBtn = document.getElementById('redoBtn');
+        redoBtn.addEventListener('click', () => {
+            taskId = null;
+            hasDownloaded = false;
+            document.getElementById('enhVideo').src = '';
+            downloadBtn.href = '#';
+            startBtn.style.display = '';
+            // has-file 保留 → 原影片預覽仍在
+            startProcessing();
+        });
+
+        reuploadBtn.addEventListener('click', () => {
+            if (hasDownloaded) {
+                resetToInitial();
+                fileInput.click();
+            } else {
+                confirmOverlay.classList.add('visible');
+            }
+        });
+
+        confirmNo.addEventListener('click', () => {
+            confirmOverlay.classList.remove('visible');
+        });
+
+        confirmYes.addEventListener('click', () => {
+            confirmOverlay.classList.remove('visible');
+            resetToInitial();
+            fileInput.click();
+        });
+
+        // 送出評分
+        submitRating.addEventListener('click', async() => {
+            if (Object.keys(ratings).length < 3) {
+                alert('請完成所有評分後再送出');
+                return;
+            }
+            submitRating.disabled = true;
+            try {
+                await fetch('/rate', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        task_id: taskId,
+                        ...ratings
+                    })
+                });
+            } catch (_) {}
+            submitRating.style.display = 'none';
+            ratingThanks.style.display = 'block';
+            setTimeout(closeModal, 1500);
+        });
+    </script>
+</body>
+
+</html>

@@ -1,0 +1,44 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# 模型權重（檔案太大）
+model/
+gfpgan/weights/
+
+# 影片檔
+*.mp4
+*.avi
+*.mov
+*.mkv
+
+# 輸出 / 上傳資料夾
+outputs/
+uploads/
+
+# Flask log
+*.log
+flask_runtime_error.log
+
+# Benchmark log
+benchmark_log.txt
+benchmark_err.txt
+
+# 臨時檔
+tmp_*.mp4
+tmp_*.avi
+
+# 使用者資料
+ratings.csv
+
+# 環境
+.env
+venv/
+env/
+
+# OS
+.DS_Store
+Thumbs.db
