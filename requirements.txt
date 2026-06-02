@@ -1,0 +1,20 @@
+# 主要套件
+Flask==3.1.3
+Werkzeug==3.1.8
+numpy==2.4.4
+opencv-python==4.13.0.92
+imageio==2.37.3
+imageio-ffmpeg==0.6.0
+scikit-image==0.26.0
+
+# AI 模型套件
+basicsr==1.4.2
+facexlib==0.3.0
+gfpgan==1.3.8
+realesrgan==0.3.0
+
+# PyTorch（有 NVIDIA GPU 請用下方 CUDA 版，否則用 CPU 版）
+# CUDA 版（推薦，需要 NVIDIA GPU）：
+#   pip install torch torchvision --index-url https://download.pytorch.org/whl/cu128
+# CPU 版（速度較慢）：
+#   pip install torch torchvision
