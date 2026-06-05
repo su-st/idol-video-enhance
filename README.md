@@ -77,6 +77,42 @@ python app.py
 3. 按「開始修復」等待處理完成
 4. 預覽並下載結果
 
+## 對外分享（QR Code）
+
+如需透過 ngrok 對外分享，讓其他人用手機掃碼進入：
+
+### 1. 安裝 ngrok 並啟動
+
+```bash
+ngrok http 5000
+```
+
+啟動後會取得一組公開網址，例如：`https://xxxx-xxxx.ngrok-free.dev`
+
+### 2. 產生 QR Code
+
+安裝 qrcode 套件：
+
+```bash
+pip install qrcode[pil]
+```
+
+開啟 `gen_qr.py`，將第二行的網址改成你自己的 ngrok 網址：
+
+```python
+url = "https://xxxx-xxxx.ngrok-free.dev"  # ← 改成你的 ngrok 網址
+```
+
+執行產生 QR Code 圖片：
+
+```bash
+python gen_qr.py
+```
+
+會在目錄下產生 `qrcode_ngrok.png`，放進簡報或印出來即可。
+
+> 注意：使用者掃碼後會看到 ngrok 警告頁面，點「Visit Site」即可進入應用程式。
+
 ## 效能評測結果
 
 以 `0528.2.mp4`（135 幀）為測試影片：
